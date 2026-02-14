@@ -1,0 +1,8 @@
+Pattern drawer for a Party@NEST event.
+
+Open the html file with a browser, you are ready to roll.
+
+Controlls:
+- `d` (or `D`) enable/disable the debug mode, in this mode the patern are shown
+  in sequential order, for five seconds each.
+- `n` (or `N`) go to the next patter.

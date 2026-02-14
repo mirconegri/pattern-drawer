@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width">
+  <style>
+    * { margin: 0; padding: 0;}
+    html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+    #visualiser {
+        position:absolute;
+        width:100%;
+        height:100%;
+        display: block;
+    }
+    #debug-name { 
+        color: white;
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        font-size: 30px;
+        z-index: 10; /*In front of the canvas*/
+    }
+  </style>
+</head>
+<body>
+  <canvas id="visualiser"></canvas>
+  <p id="debug-name"></p>
+
+  <script>
+    class Visualiser {
+        constructor(canvasId) {
+            this.canvas = document.getElementById(canvasId);
+            this.ctx = this.canvas.getContext('2d');
+            this.width = this.canvas.width;
+            this.height = this.canvas.height;
+            this.switchInterval = 10000;
+            this.frame = 0;
+            this.startTime = Date.now();
+            this.patterns = [
+                // Thanks to a few online guys for their functions
+                {name: "Oscilloscope", fun: this.renderOscilloscope},
+                {name: "SpectrumBars", fun: this.renderSpectrumBars},
+                {name: "FlowingWaves", fun: this.renderFlowingWaves},
+                {name: "ParticleStorm", fun: this.renderParticleStorm},
+                {name: "Plasma", fun: this.renderPlasma},
+                {name: "SpiralWaves", fun: this.renderSpiralWaves},
+                {name: "Kaleidoscope", fun: this.renderKaleidoscope},
+                {name: "MatrixRain", fun: this.renderMatrixRain},
+                {name: "CircularPulse", fun: this.renderCircularPulse},
+                {name: "LaserBeams", fun: this.renderLaserBeams},
+            ];
+            this.currentPattern = null;
+            this.patternData = {};
+
+            this.debugMode = false;
+            this.debugIndex = 0;
+            this.debugInterval = 5000;
+
+            this.resizeCanvas();
+            window.addEventListener('resize', () => this.resizeCanvas());
+            this.switchPattern();
+        }
+
+        // Due to my skill issue in JS I completely vibe coded this one
+        resizeCanvas() {
+            // Get the device pixel ratio for high-DPI displays
+            const dpr = window.devicePixelRatio || 1;
+
+            const displaySizes = this.canvas.getBoundingClientRect();
+
+            this.canvas.width = displaySizes.width * dpr;
+            this.canvas.height = displaySizes.height * dpr;
+            this.ctx.scale(dpr, dpr);
+            this.width = displaySizes.width;
+            this.height = displaySizes.height;
+
+            // Reset pattern data on resize (for patterns that cache positions)
+            this.patternData = {};
+        }
+
+        generateWaveData(count = 128) {
+            const data = [];
+            const time = this.frame * 0.02;
+            for (let i = 0; i < count; i++) {
+                const freq1 = Math.sin(i * 0.1 + time) * 0.5;
+                const freq2 = Math.sin(i * 0.05 + time * 1.3) * 0.3;
+                const freq3 = Math.sin(i * 0.15 + time * 0.7) * 0.2;
+                data.push((freq1 + freq2 + freq3) * 0.8);
+            }
+            return data;
+        }
+
+        generateSpectrumData(count = 64) {
+            const data = [];
+            const time = this.frame * 0.05;
+            for (let i = 0; i < count; i++) {
+                const bass = Math.sin(time + i * 0.1) * 0.4;
+                const mid = Math.sin(time * 1.5 + i * 0.2) * 0.3;
+                const high = Math.sin(time * 2 + i * 0.3) * 0.2;
+                const value = Math.abs(bass + mid + high) * (1 - i / count * 0.5);
+                data.push(value);
+            }
+            return data;
+        }
+
+        // Clear canvas from a pattern to another
+        clear(alpha) {
+            this.ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+            this.ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        renderOscilloscope() {
+            this.clear(.1);
+            const waveData = this.generateWaveData(256);
+            const centerY = this.height / 2;
+            const step = this.width / waveData.length;
+            // Draw glow
+            this.ctx.shadowBlur = 15;
+            this.ctx.shadowColor = '#00ff88';
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, centerY + waveData[0] * 200);
+            for (let i = 1; i < waveData.length; i++) {
+                const x = i * step;
+                const y = centerY + waveData[i] * 200;
+                this.ctx.lineTo(x, y);
+            }
+            const gradient = this.ctx.createLinearGradient(0, 0, this.width, 0);
+            gradient.addColorStop(0, '#00ffff');
+            gradient.addColorStop(0.5, '#00ff88');
+            gradient.addColorStop(1, '#0088ff');
+            this.ctx.strokeStyle = gradient;
+            this.ctx.lineWidth = 2;
+            this.ctx.stroke();
+            this.ctx.shadowBlur = 0;
+        }
+
+        renderSpectrumBars() {
+            this.clear(1);
+            const spectrum = this.generateSpectrumData(Math.floor(this.width / 12));
+            const barWidth = this.width / spectrum.length;
+            for (let i = 0; i < spectrum.length; i++) {
+                const barHeight = spectrum[i] * this.height * 0.8;
+                const x = i * barWidth;
+                const y = this.height - barHeight;
+                const hue = (i / spectrum.length * 180 + this.frame * 0.5) % 360;
+                const gradient = this.ctx.createLinearGradient(x, y, x, this.height);
+                gradient.addColorStop(0, `hsl(${hue}, 100%, 60%)`);
+                gradient.addColorStop(1, `hsl(${hue}, 100%, 30%)`);
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(x, y, barWidth - 2, barHeight);
+                this.ctx.fillStyle = `hsla(${hue}, 100%, 80%, 0.8)`;
+                this.ctx.fillRect(x, y - 3, barWidth - 2, 3);
+            }
+        }
+
+        renderFlowingWaves() {
+            this.clear(.1);
+            const numWaves = 5;
+            const time = this.frame * 0.02;
+            for (let w = 0; w < numWaves; w++) {
+                const hue = (w * 60 + this.frame) % 360;
+                this.ctx.strokeStyle = `hsla(${hue}, 100%, 60%, 0.6)`;
+                this.ctx.lineWidth = 2;
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+                
+                this.ctx.beginPath();
+                for (let x = 0; x < this.width; x += 5) {
+                    const frequency = 0.01 + w * 0.003;
+                    const amplitude = 50 + w * 20;
+                    const phase = time + w * 0.5;
+                    const y = this.height / 2 + Math.sin(x * frequency + phase) * amplitude;
+                    if (x === 0) {
+                        this.ctx.moveTo(x, y);
+                    } else {
+                        this.ctx.lineTo(x, y);
+                    }
+                }
+                this.ctx.stroke();
+            }
+            this.ctx.shadowBlur = 0;
+        }
+        
+        renderParticleStorm() {
+            if (!this.patternData.particles) {
+                this.patternData.particles = [];
+                for (let i = 0; i < 200; i++) {
+                    this.patternData.particles.push({
+                        x: Math.random() * this.width,
+                        y: Math.random() * this.height,
+                        vx: (Math.random() - 0.5) * 3,
+                        vy: (Math.random() - 0.5) * 3,
+                        hue: Math.random() * 360,
+                        size: Math.random() * 3 + 1
+                    });
+                }
+            }
+            this.clear(.1);
+            this.patternData.particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.hue = (p.hue + 1) % 360;
+                
+                if (p.x < 0) p.x = this.width;
+                if (p.x > this.width) p.x = 0;
+                if (p.y < 0) p.y = this.height;
+                if (p.y > this.height) p.y = 0;
+
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = `hsl(${p.hue}, 100%, 50%)`;
+                this.ctx.fillStyle = `hsl(${p.hue}, 100%, 60%)`;
+                this.ctx.beginPath();
+                this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                this.ctx.fill();
+            });
+
+            this.ctx.shadowBlur = 0;
+        }
+
+        renderPlasma() {
+            this.clear(.1);
+            const time = this.frame * 0.05;
+            const height = this.canvas.height;
+            const width = this.canvas.width;
+            const imageData = this.ctx.createImageData(width, height);
+            const data = imageData.data;
+            const step = 2;
+            for (let y = 0; y < height; y += step) {
+                for (let x = 0; x < width; x += step) {
+                    const value = Math.sin(x * 0.01 + time) +
+                          Math.sin(y * 0.01 + time) +
+                          Math.sin((x + y) * 0.01 + time) +
+                          Math.sin(Math.sqrt(x * x + y * y) * 0.01 + time);
+                    const hue = ((value + 4) / 8 * 360 + this.frame) % 360;
+                    const rgb = this.hslToRgb(hue / 360, 1, 0.5);
+                    const index = (y * width + x) * 4;
+                    data[index] = rgb[0];
+                    data[index + 1] = rgb[1];
+                    data[index + 2] = rgb[2];
+                    data[index + 3] = 255;
+                    if (x + 1 < width && y + 1 < height) {
+                        const index2 = (y * width + (x + 1)) * 4;
+                        const index3 = ((y + 1) * width + x) * 4;
+                        const index4 = ((y + 1) * width + (x + 1)) * 4;
+                        [index2, index3, index4].forEach(i => {
+                            data[i] = rgb[0];
+                            data[i + 1] = rgb[1];
+                            data[i + 2] = rgb[2];
+                            data[i + 3] = 255;
+                        });
+                    }
+                }
+            }
+            this.ctx.putImageData(imageData, 0, 0);
+        }
+
+        renderSpiralWaves() {
+            this.clear(0.25);
+            const centerX = this.width / 2;
+            const centerY = this.height / 2;
+            const time = this.frame * 0.03;
+            const numSpirals = 6;
+            for (let s = 0; s < numSpirals; s++) {
+                const hue = (s * 60 + this.frame) % 360;
+                this.ctx.strokeStyle = `hsla(${hue}, 100%, 60%, 0.6)`;
+                this.ctx.lineWidth = 2;
+                this.ctx.shadowBlur = 8;
+                this.ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+                this.ctx.beginPath();
+                for (let i = 0; i < 360; i += 2) {
+                    const angle = i * Math.PI / 180 + s * Math.PI / 3 + time;
+                    const radius = 50 + i * 0.5 + Math.sin(i * 0.05 + time) * 30;
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+                    if (i === 0) {
+                        this.ctx.moveTo(x, y);
+                    } else {
+                        this.ctx.lineTo(x, y);
+                    }
+                }
+                this.ctx.stroke();
+            }
+            this.ctx.shadowBlur = 0;
+        }
+
+        renderKaleidoscope() {
+            this.clear(0.25);
+            const centerX = this.width / 2;
+            const centerY = this.height / 2;
+            const time = this.frame * 0.02;
+            const segments = 12;
+            this.ctx.save();
+            this.ctx.translate(centerX, centerY);
+            for (let seg = 0; seg < segments; seg++) {
+                this.ctx.save();
+                this.ctx.rotate((seg * 2 * Math.PI) / segments);
+                for (let i = 0; i < 5; i++) {
+                    const angle = time + i;
+                    const radius = 100 + i * 40;
+                    const x = Math.cos(angle) * radius;
+                    const y = Math.sin(angle) * radius;
+                    const size = 20 + Math.sin(time + i) * 10;
+                    const hue = (i * 70 + this.frame) % 360;
+                    this.ctx.fillStyle = `hsla(${hue}, 100%, 60%, 0.7)`;
+                    this.ctx.shadowBlur = 15;
+                    this.ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+                this.ctx.restore();
+            }
+            this.ctx.restore();
+            this.ctx.shadowBlur = 0;
+        }
+
+        renderMatrixRain() {
+            if (!this.patternData.drops) {
+                this.patternData.drops = [];
+                for (let i = 0; i < 50; i++) {
+                    this.patternData.drops.push({
+                        x: Math.random() * this.width,
+                        y: Math.random() * this.height,
+                        speed: Math.random() * 5 + 2,
+                        length: Math.random() * 100 + 50
+                    });
+                }
+            }
+            this.clear(0.25);
+            this.patternData.drops.forEach(drop => {
+                drop.y += drop.speed;
+                if (drop.y > this.height + drop.length) {
+                    drop.y = -drop.length;
+                    drop.x = Math.random() * this.width;
+                }
+                const gradient = this.ctx.createLinearGradient(0, drop.y - drop.length, 0, drop.y);
+                gradient.addColorStop(0, 'rgba(0, 255, 150, 0)');
+                gradient.addColorStop(0.5, 'rgba(0, 255, 150, 0.5)');
+                gradient.addColorStop(1, 'rgba(0, 255, 150, 1)');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(drop.x, drop.y - drop.length, 3, drop.length);
+
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                this.ctx.fillRect(drop.x, drop.y - 5, 3, 5);
+            });
+        }
+
+        renderCircularPulse() {
+            this.clear(0.25);
+            const centerX = this.width / 2;
+            const centerY = this.height / 2;
+            const time = this.frame * 0.05;
+            const numRings = 8;
+
+            for (let i = 0; i < numRings; i++) {
+                const radius = (50 + i * 40 + time * 30) % 400;
+                const alpha = 1 - (radius / 400);
+                const hue = (i * 45 + this.frame) % 360;
+                this.ctx.strokeStyle = `hsla(${hue}, 100%, 60%, ${alpha})`;
+                this.ctx.lineWidth = 3;
+                this.ctx.shadowBlur = 15;
+                this.ctx.shadowColor = `hsla(${hue}, 100%, 60%, ${alpha})`;
+                this.ctx.beginPath();
+                this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                this.ctx.stroke();
+            }
+            this.ctx.shadowBlur = 0;
+        }
+
+        renderLaserBeams() {
+            this.clear(0.25);
+            const numBeams = 12;
+            const centerX = this.width / 2;
+            const centerY = this.height / 2;
+            const time = this.frame * 0.03;
+
+            for (let i = 0; i < numBeams; i++) {
+                const angle = (i / numBeams * Math.PI * 2) + time;
+                const length = 250 + Math.sin(time + i) * 100;
+                const endX = centerX + Math.cos(angle) * length;
+                const endY = centerY + Math.sin(angle) * length;
+                    
+                const hue = (i * 30 + this.frame) % 360;
+                const gradient = this.ctx.createLinearGradient(centerX, centerY, endX, endY);
+                gradient.addColorStop(0, `hsla(${hue}, 100%, 60%, 0.8)`);
+                gradient.addColorStop(1, `hsla(${hue}, 100%, 60%, 0)`);
+                
+                this.ctx.strokeStyle = gradient;
+                this.ctx.lineWidth = 4;
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(centerX, centerY);
+                this.ctx.lineTo(endX, endY);
+                this.ctx.stroke();
+                }
+            this.ctx.shadowBlur = 0;
+        }
+
+        // Thanks StackOverflow
+        hslToRgb(h, s, l) {
+            let r, g, b;
+            if (s === 0) {
+                r = g = b = l;
+            } else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1/3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1/3);
+                }
+            return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+        }
+
+        switchPattern() {
+            if (this.debugMode) {
+                document.getElementById("debug-name").innerText = this.patterns[this.debugIndex].name;
+                this.currentPattern = this.patterns[this.debugIndex].fun;
+                this.debugIndex = (this.debugIndex+1)%this.patterns.length;
+            }
+            else{
+                this.currentPattern = this.patterns[
+                    Math.floor(Math.random() * this.patterns.length)
+                ].fun;
+            }
+            this.patternData = {};
+            this.startTime = Date.now();
+        }
+
+        animate() {
+            this.currentPattern();
+            this.frame++;
+            const currentInterval = this.debugMode ?
+                  this.debugInterval : this.switchInterval;
+            if (Date.now() - this.startTime >= currentInterval) {
+                this.switchPattern();
+            }
+            requestAnimationFrame(() => this.animate());
+        }
+
+        enableDebugMode() {
+            this.debugMode = true;
+            this.debugIndex = 0;
+            this.switchPattern();
+        }
+
+        disableDebugMode() {
+            document.getElementById("debug-name").innerText = '';
+            this.debugMode = false;
+            this.debugIndex = 0;
+            this.switchPattern();
+        }
+    }
+    
+    const visualiser = new Visualiser('visualiser');
+    visualiser.animate();
+
+    window.visualiser = visualiser;
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'd' || e.key === 'D') {
+            if (visualiser.debugMode) {
+                visualiser.disableDebugMode();
+            } else{
+                visualiser.enableDebugMode();
+            }
+        }
+        else if (e.key === 'n' || e.key === 'N') {
+            visualiser.switchPattern();
+        }
+    });
+  </script>
+</body>
+</html>
