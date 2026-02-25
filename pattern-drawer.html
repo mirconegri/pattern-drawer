@@ -37,7 +37,8 @@
             this.ctx = this.canvas.getContext('2d');
             this.width = this.canvas.width;
             this.height = this.canvas.height;
-            this.switchInterval = 10000;
+            this.minutesPerPattern = 3;
+            this.switchInterval = this.minutesPerPattern * 60 * 1000;
             this.frame = 0;
             this.startTime = Date.now();
             this.patterns = [
@@ -46,12 +47,12 @@
                 {name: "SpectrumBars", fun: this.renderSpectrumBars},
                 {name: "FlowingWaves", fun: this.renderFlowingWaves},
                 {name: "ParticleStorm", fun: this.renderParticleStorm},
-                {name: "Plasma", fun: this.renderPlasma},
                 {name: "SpiralWaves", fun: this.renderSpiralWaves},
                 {name: "Kaleidoscope", fun: this.renderKaleidoscope},
                 {name: "MatrixRain", fun: this.renderMatrixRain},
                 {name: "CircularPulse", fun: this.renderCircularPulse},
                 {name: "LaserBeams", fun: this.renderLaserBeams},
+                {name: "HousePulseRings", fun: this.renderHousePulseRings},
             ];
             this.currentPattern = null;
             this.patternData = {};
@@ -220,42 +221,33 @@
 
             this.ctx.shadowBlur = 0;
         }
+        renderHousePulseRings() {
+            this.clear(0.25);
 
-        renderPlasma() {
-            this.clear(.1);
-            const time = this.frame * 0.05;
-            const height = this.canvas.height;
-            const width = this.canvas.width;
-            const imageData = this.ctx.createImageData(width, height);
-            const data = imageData.data;
-            const step = 2;
-            for (let y = 0; y < height; y += step) {
-                for (let x = 0; x < width; x += step) {
-                    const value = Math.sin(x * 0.01 + time) +
-                          Math.sin(y * 0.01 + time) +
-                          Math.sin((x + y) * 0.01 + time) +
-                          Math.sin(Math.sqrt(x * x + y * y) * 0.01 + time);
-                    const hue = ((value + 4) / 8 * 360 + this.frame) % 360;
-                    const rgb = this.hslToRgb(hue / 360, 1, 0.5);
-                    const index = (y * width + x) * 4;
-                    data[index] = rgb[0];
-                    data[index + 1] = rgb[1];
-                    data[index + 2] = rgb[2];
-                    data[index + 3] = 255;
-                    if (x + 1 < width && y + 1 < height) {
-                        const index2 = (y * width + (x + 1)) * 4;
-                        const index3 = ((y + 1) * width + x) * 4;
-                        const index4 = ((y + 1) * width + (x + 1)) * 4;
-                        [index2, index3, index4].forEach(i => {
-                            data[i] = rgb[0];
-                            data[i + 1] = rgb[1];
-                            data[i + 2] = rgb[2];
-                            data[i + 3] = 255;
-                        });
-                    }
-                }
+            const centerX = this.width / 2;
+            const centerY = this.height / 2;
+
+            const time = this.frame * 0.08;
+            const beat = Math.abs(Math.sin(time));
+
+            const maxRadius = Math.min(this.width, this.height) * 0.45;
+
+            for (let i = 0; i < 6; i++) {
+
+                const radius = maxRadius * (i / 6) * beat + 20;
+                const hue = (this.frame * 4 + i * 60) % 360;
+
+                this.ctx.strokeStyle = `hsla(${hue}, 100%, 60%, ${1 - i / 6})`;
+                this.ctx.lineWidth = 8 - i;
+                this.ctx.shadowBlur = 25;
+                this.ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+
+                this.ctx.beginPath();
+                this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                this.ctx.stroke();
             }
-            this.ctx.putImageData(imageData, 0, 0);
+
+            this.ctx.shadowBlur = 0;
         }
 
         renderSpiralWaves() {
