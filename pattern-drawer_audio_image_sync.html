@@ -432,6 +432,7 @@
 
         switchPattern() {
             if (this.debugMode) {
+                document.getElementById("debug-name").innerText = this.patterns[this.debugIndex].name;
                 this.currentPattern = this.patterns[this.debugIndex].fun;
                 this.debugIndex = (this.debugIndex+1)%this.patterns.length;
             } else {
