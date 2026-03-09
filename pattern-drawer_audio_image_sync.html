@@ -35,13 +35,8 @@
   <script>
     class Visualiser {
         constructor(canvasId) {
-            this.patternIndex = 0; 
             
-            // Logo image handling
-            this.logoIndex = 0;
-            this.logo = new Image();
-            this.logoLoaded = false;
-            this.loadNextLogo();
+            this.patternIndex = 0; 
 
             this.canvas = document.getElementById(canvasId);
             this.ctx = this.canvas.getContext('2d');
@@ -93,13 +88,6 @@
 
             this.audioInit = false;
             document.addEventListener('click', () => this.initAudio(), {once:true});
-        }
-
-        loadNextLogo() {
-            const img = new Image();
-            img.onload = () => { this.logo = img; this.logoLoaded = true; };
-            img.onerror = () => { if (this.logoIndex > 0) { this.logoIndex = 0; this.loadNextLogo(); } };
-            img.src = `image${this.logoIndex}.png`;
         }
 
         async initAudio() {
@@ -442,30 +430,6 @@
             }
             this.patternData = {};
             this.startTime = Date.now();
-            this.logoIndex++;
-            this.loadNextLogo();
-        }
-
-        renderLogoOverlay() {
-            const cx = this.width / 2, cy = this.height / 2;
-            const maxSize = Math.min(this.width, this.height) * 0.23; 
-            const scale = (1 + this.hit * 0.3); 
-            const opacity = 0.85 + this.hit * 0.15; 
-            const ratio = this.logo.width / this.logo.height;
-            let drawW, drawH;
-            
-            if (ratio > 1) { drawW = maxSize; drawH = maxSize / ratio; } 
-            else { drawH = maxSize; drawW = maxSize * ratio; }
-            
-            drawW *= scale; drawH *= scale;
-
-            this.ctx.save();
-            this.ctx.translate(cx, cy); 
-            this.ctx.globalAlpha = opacity; 
-            this.ctx.shadowColor = "white"; this.ctx.shadowBlur = 4; 
-            this.ctx.drawImage(this.logo, -drawW / 2, -drawH / 2, drawW, drawH);
-            this.ctx.shadowBlur = 0;            
-            this.ctx.restore(); 
         }
 
         renderStarfieldWarp() {
@@ -806,7 +770,6 @@
             
             this.lastTime = now;
             this.currentPattern();
-            if (this.logoLoaded) this.renderLogoOverlay();
             
             if (now - this.startTime >= 5000) this.switchPattern();
             requestAnimationFrame(() => this.animate());
